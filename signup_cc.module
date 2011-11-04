@@ -480,7 +480,7 @@ function signup_cc_form_submit($form, &$form_state) {
 	$contactXML = $ccContactOBJ->createContactXML(null,$postFields);
 	
 	 if (!$ccContactOBJ->addSubscriber($contactXML)) {
-	  drupal_set_message('There was an error while adding your information to our list, please contact ' . $policy_contact' .', 'error');
+	  drupal_set_message('There was an error while adding your information to our list, please contact ' . $policy_contact, 'error');
 	}	else {
 	  drupal_set_message('Thank you for signing up', 'status');
 	}
