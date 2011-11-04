@@ -18,7 +18,7 @@
 	width: 16px;
 	height: 11px;
 	margin: 8px 5px 8px 10px;
-	background: transparent url(../images/loader.gif) no-repeat 0 0;
+	background: transparent url('../images/loader.gif') no-repeat 0 0;
 	float: left;
 }
 
@@ -102,6 +102,31 @@ html.js #edit-continue-to-dependent-dropdown {
 	margin-left: 135px;
 }
 
+
+#signup-cc-form #edit-phone-ext label.option {
+	width: 2em;
+	margin-right: 5px;
+	text-align: right;
+}
+
+#signup-cc-form #edit-phone-ext-wrapper {
+	display: inline;
+	position: relative;
+	float: right;
+	margin-right: 30px;
+	width: 75px;
+ 	top: -45px;
+}
+
+#signup-cc-form #edit-phone-ext {
+	text-align: right;
+	width: 68px;
+}
+
+#signup-cc-form #edit-phone-ext-wrapper .description {
+	position: relative;
+	margin-right: 20px;
+}
 #signup-cc-form #address-type  .form-radios {
 	float: left;
 	margin: 0;
