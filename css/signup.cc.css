@@ -7,7 +7,8 @@
 }
 
 #signup-cc-form .form-item input {
-	padding: 6px;
+	padding: 5px;
+	border-radius: 3px;
 }
 
 #signup-cc-form .ahah-progress {
@@ -18,7 +19,7 @@
 	width: 16px;
 	height: 11px;
 	margin: 8px 5px 8px 10px;
-	background: transparent url('../images/loader.gif') no-repeat 0 0;
+	background: transparent url(../images/loader.gif) no-repeat 0 0;
 	float: left;
 }
 
@@ -46,6 +47,13 @@
 	white-space: nowrap;
 	top: 0;
 	line-height: 1.75em;
+}
+
+#signup-cc-form #edit-master-dropdown-wrapper .description {
+    position:relative;
+	left: 135px;
+	padding-top: 2px;
+	padding-bottom: 2em;
 }
 
 #signup-cc-form #edit-phone-wrapper label.error {
@@ -102,7 +110,6 @@ html.js #edit-continue-to-dependent-dropdown {
 	margin-left: 135px;
 }
 
-
 #signup-cc-form #edit-phone-ext label.option {
 	width: 2em;
 	margin-right: 5px;
@@ -110,12 +117,9 @@ html.js #edit-continue-to-dependent-dropdown {
 }
 
 #signup-cc-form #edit-phone-ext-wrapper {
-	display: inline;
-	position: relative;
-	float: right;
-	margin-right: 30px;
-	width: 75px;
- 	top: -45px;
+	clear: none;
+	float: left;
+	margin-left: 10px;
 }
 
 #signup-cc-form #edit-phone-ext {
@@ -127,6 +131,7 @@ html.js #edit-continue-to-dependent-dropdown {
 	position: relative;
 	margin-right: 20px;
 }
+
 #signup-cc-form #address-type  .form-radios {
 	float: left;
 	margin: 0;
@@ -145,3 +150,8 @@ html.js #edit-continue-to-dependent-dropdown {
 	float: left;
 	clear: none;
 }
+
+#signup-cc-form input.example { color: #777; font-style:italic; } 
+
+#signup-cc-thanks ul { list-style: none;border:0;margin:1.0em 3em; } 
+#signup-cc-thanks ul li { margin-bottom:0.6em; }
