@@ -4,18 +4,20 @@
 /**
  * Implement hook_menu().
  *
+ * Note that each item has both an entry point to prepare the form, and also
+ * a callback function that provides and AHAH menu callback.
  */
 function signup_cc_menu() {
 	$items = array();
 	$items['signup/policy'] = array(
-		'title' => 'Policy Newsletter Signup',
+		'title' => 'Policy Signup',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('signup_cc_form'),
 		'access callback' => TRUE,
 		'type' => MENU_CALLBACK,
 	);
-	$items['signup/form/callback'] = array(
-		'title' => 'Policy Newsletter Signup',
+	$items['signup_cc/form/callback'] = array(
+		'title' => 'Policy Signup',
 		'page callback' => 'signup_cc_form_callback',
 		'access callback' => TRUE,
 		'type' => MENU_CALLBACK,
@@ -45,9 +47,18 @@ function signup_cc_callback_helper() {
  * Implements hook_init() to add module css.
  */
 function signup_cc_init() {
-	drupal_add_css(drupal_get_path('module', 'signup_cc') . '/signup_cc.css');
+	drupal_add_css(drupal_get_path('module', 'signup_cc') . '/signup.cc.css');
+	//drupal_add_js(drupal_get_path('module','signup') . '/js/jquery.example.js');
 }
+
+/**
+ * Form builder function to create a form showing dependent dropdowns. The
+ * second dropdown has its values populated based on the first.
+ * @param $form_state
+ * @param $my_values
+ */
 function signup_cc_form(&$form_state, $my_values = array()) {
+	$form = array();
 
 	// get the list of options to populate the first dropdown
 	$initial_options = _signup_cc_get_first_dropdown_options();
@@ -58,253 +69,278 @@ function signup_cc_form(&$form_state, $my_values = array()) {
 	// second dropdown.
 	$master_selection = !empty($form_state['values']['master_dropdown']) ? $form_state['values']['master_dropdown'] : t('- select -');
 
-
-	$form = array();
-		$form['intro'] = array(
-			'#prefix' => '<div id="form-intro">',
-			'#suffix' => '</div>',
-			'#type' => 'markup',
-			'#weight' => 0,
-			'#value' => t('To complete your signup and to serve you better we’d be grateful if you would take a moment to supply us with more information.')
-		);
-		$form['email_address'] = array(
-			'#type' => 'fieldset',
-			'#title' => t(''),
-			'#weight' => 1,
-			'#attributes' => array(
-				'id' => 'email-address'
-			)
-		);
-		$form['email_address']['temp_email'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Email'),
-			'#size' => 40,
-			'#required' => TRUE,
-		);
-		$form['email_address']['email'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Verify Email'),
-			'#size' => 40,
-			'#required' => TRUE,
-			'#attributes' => array(
-				'autocomplete' => 'off'
-			)
-		);
-		$form['personal_info'] = array(
-			'#type' => 'fieldset',
-			'#title' => t('Personal Information'),
-			'#weight' => 2,
-			'#attributes' => array(
-				'id' => 'personal-info'
-			)
-		);
-		$form['personal_info']['salutation'] = array(
-			'#type' => 'select',
-			'#title' => t('Salutation'),
-			'#options' => array(
-				'select' => '- select -',
-				'Dr.' => t('Dr.'),
-				'Mr.' => t('Mr.'),
-				'Ms.' => t('Ms.'),
-				'Miss' => t('Miss'),
-				'Mrs.' => t('Mrs.'),
-				'Prof.' => t('Prof.'),
-				'Rabbi' => t('Rabbi'),
-				'Hon.' => t('Hon.'),
-				'Assemblymember' => t('Assemblymember'),
-				'Chancellor' => t('Chancellor'),
-				'Governor' => t('Governor'),
-				'Representative' => t('Representative'),
-				'Senator' => t('Senator')
-			),
-			'#required' => FALSE,
-		);
-		$form['personal_info']['first'] = array(
-			'#type' => 'textfield',
-			'#title' => t('First Name'),
-			'#size' => 50,
-			'#required' => TRUE,
-		);
-		$form['personal_info']['last'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Last Name'),
-			'#size' => 50,
-			'#required' => TRUE,
-		);
-		$form['personal_info']['country_phone'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Phone'),
-			'#size' => 3,
-			'#default_value' => '1',
-			'#maxlength' => 3,
-			'#required' => FALSE,
-			'#description' => t('country code'),
-			'#attributes' => array(
+	$form['intro'] = array(
+		'#prefix' => '<div id="form-intro">',
+		'#suffix' => '</div>',
+		'#type'   => 'markup',
+		'#weight' => 0,
+		'#value'  => t('To complete your signup and to serve you better we’d be grateful if you would take a moment to supply us with more information.')
+	);
+	$form['email_address'] = array(
+		'#type'   => 'fieldset',
+		'#title'  => t(''),
+		'#weight' => 1,
+		'#attributes' => array(
+			'id' => 'email-address'
+		)
+	);
+	$form['email_address']['temp_email'] = array(
+		'#type'  => 'textfield',
+		'#title' => t('Email'),
+		'#size'  => 40,
+		'#required' => TRUE,
+	);
+	$form['email_address']['email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Verify Email'),
+		'#size' => 40,
+		'#required' => TRUE,
+		'#attributes' => array(
+			'autocomplete' => 'off'
+		)
+	);
+	$form['personal_info'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Personal Information'),
+		'#weight' => 2,
+		'#attributes' => array(
+			'id' => 'personal-info'
+		)
+	);
+	$form['personal_info']['salutation'] = array(
+		'#type' => 'select',
+		'#title' => t('Salutation'),
+		'#options' => array(
+			'select' => '- select -',
+			'Dr.' => t('Dr.'),
+			'Mr.' => t('Mr.'),
+			'Ms.' => t('Ms.'),
+			'Miss' => t('Miss'),
+			'Mrs.' => t('Mrs.'),
+			'Prof.' => t('Prof.'),
+			'Rabbi' => t('Rabbi'),
+			'Hon.' => t('Hon.'),
+			'Assemblymember' => t('Assemblymember'),
+			'Chancellor' => t('Chancellor'),
+			'Governor' => t('Governor'),
+			'Representative' => t('Representative'),
+			'Senator' => t('Senator')
+		  ),
+		'#required' => FALSE,
+	);
+	$form['personal_info']['first'] = array(
+		'#type' => 'textfield',
+		'#title' => t('First Name'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);
+	$form['personal_info']['last'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Last Name'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);
+	$form['personal_info']['country_phone'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Phone'),
+		'#size' => 3,
+		'#default_value' => '1',
+		'#maxlength' => 3,
+		'#required' => FALSE,
+		'#description' => t('country code'),
+		'#attributes' => array(
 				'id' => 'phone_cc'
 			)
-		);
-		$form['personal_info']['phone'] = array(
-			'#type' => 'textfield',
-			'#title' => t(''),
-			'#size' => 17,
-			'#required' => FALSE,
-		);
-		$form['personal_info']['phone_ext'] = array(
-			'#type' => 'textfield',
-			'#title' => t(''),
-			'#size' => 6,
-			'#required' => FALSE,
-			'#description' => t('extension'),
-		);
-		$form['employment'] = array(
-			'#type' => 'fieldset',
-			'#title' => t('Employer Information'),
-			'#weight' => 3,
-			'#attributes' => array(
-				'id' => 'employment'
-			)
-		);
-		$form['employment']['title'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Title'),
-			'#size' => 50,
-			'#required' => TRUE,
-		);
-		$form['employment']['employer'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Employer'),
-			'#size' => 50,
-			'#required' => TRUE,
-		);
-		$form['employment']['employer_type'] = array(
-			'#type' => 'select',
-			'#title' => t('Employer Type'),
-			'#required' => FALSE,
-			'#options' => array(
-				'select' => '- select -',
-				'School District Office' => t('School District Office'),
-				'Pre K-12 School' => t('Pre K-12 School'),
-				'University' => t('University'),
-				'State Agency' => t('State Agency'),
-				'Federal Government' => t('Federal Government'),
-				'Pre K-12 School' => t('Pre K-12 School'),
-				'Foundation' => t('Foundation'),
-				'Non-Profit Organization' => t('Non-Profit Organization'),
-				'Business' => t('Business'),
-				'Self-Employed' => t('Self-Employed'),
-				'Other' => t('Other'),
-			),
-		);
-		$form['mailing_address'] = array(
-			'#type' => 'fieldset',
-			'#title' => t('Mailing Address'),
-			'#weight' => 3,
-			'#attributes' => array(
-				'id' => 'mailing-address'
-			)
-		);
-		$form['mailing_address']['address_type'] = array(
-			'#prefix' => '<div id="address-type">',
-			'#suffix' => '</div>',
-			'#type' => 'radios',
-			'#title' => t('Address Type'),
-			'#required' => FALSE,
-			'#default_value' => 0,
-			'#options' => array(
-					t('Office'),
-					t('Home'),
-			)
-		);
-		$form['mailing_address']['master_dropdown'] = array(
-			'#type' => 'select',
-			'#title' => 'Country',
-			'#options' => $initial_options,
-			'#default_value' => $master_selection,
-			'#ahah' => array(
-				'path' => 'signup_cc/form/callback',
-				'wrapper' => 'dependent-dropdown-wrapper',
-				// 'event' => 'change', // default value: does not need to be set explicitly.
+	);
+	$form['personal_info']['phone'] = array(
+		'#type' => 'textfield',
+		'#title' => t(''),
+		'#size' => 17,
+		'#required' => FALSE,
+	);
+	$form['personal_info']['phone_ext'] = array(
+		'#type' => 'textfield',
+		'#title' => t(''),
+		'#size' => 6,
+		'#required' => FALSE,
+		'#description' => t('extension'),
+	);
+	$form['employment'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Employer Information'),
+		'#weight' => 3,
+		'#attributes' => array(
+			'id' => 'employment'
+		)
+	);
+	$form['employment']['title'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Title'),
+		'#size' => 50,
+		'#required' => TRUE,
+	);
+	$form['employment']['employer'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Employer'),
+		'#size' => 50,
+		'#required' => TRUE,
+	);
+	$form['employment']['employer_type'] = array(
+		'#type' => 'select',
+		'#title' => t('Employer Type'),
+		'#required' => FALSE,
+		'#options' => array(
+			'select' => '- select -',
+			'School District Office' => t('School District Office'),
+			'Pre K-12 School' => t('Pre K-12 School'),
+			'University' => t('University'),
+			'State Agency' => t('State Agency'),
+			'Federal Government' => t('Federal Government'),
+			'Pre K-12 School' => t('Pre K-12 School'),
+			'Foundation' => t('Foundation'),
+			'Non-Profit Organization' => t('Non-Profit Organization'),
+			'Business' => t('Business'),
+			'Self-Employed' => t('Self-Employed'),
+			'Other' => t('Other'),
+		),
+	);
+	$form['employment']['role'] = array(
+		'#type' => 'select',
+		'#title' => t('Role'),
+		'#required' => FALSE,
+		'#options' => array(
+			'select' => '- select -',
+			'Policy Maker' => t('Policy Maker'),
+			'School Leader' => t('School Leader'),
+			'Induction Leader' => t('Induction Leader'),
+			'Beginning Teacher' => t('Beginning Teacher'),
+			'Mentor' => t('Mentor'),
+			'Teacher' => t('Teacher'),
+			'Union Leader' => t('Union Leader'),
+			'Central Office Administrator / Coordinator' => t('Central Office Administrator / Coordinator'),
+			'University Faculty / Supervisor' => t('University Faculty / Supervisor'),
+			'Professional Developer' => t('Professional Developer'),
+			'Researcher' => t('Researcher'),
+			'Other' => t('Other'),
+		),
+	);
+	$form['mailing_address'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Mailing Address'),
+		'#weight' => 3,
+		'#attributes' => array(
+			'id' => 'mailing-address'
+		)
+	);
+	$form['mailing_address']['address_type'] = array(
+		'#prefix' => '<div id="address-type">',
+		'#suffix' => '</div>',
+		'#type' => 'radios',
+		'#title' => t('Address Type'),
+		'#required' => FALSE,
+		'#default_value' => 0,
+		'#options' => array(
+				t('Office'),
+				t('Home'),
+		)
+	);
+	$form['mailing_address']['master_dropdown'] = array(
+		'#type' => 'select',
+		'#title' => 'Country',
+		'#options' => $initial_options,
+		'#default_value' => $master_selection,
+		'#ahah' => array(
+			'path' => 'signup_cc/form/callback',
+			'wrapper' => 'dependent-dropdown-wrapper',
+			// 'event' => 'change', // default value: does not need to be set explicitly.
 		),
 		'#attributes' => array('class' => 'master-dropdown'),
 		'#description' => t('Select country; for US & Canada, state list below will be populated accordingly.'), 
 	);
-		$form['mailing_address']['address_1'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Address 1'),
-			'#size' => 50,
-			'#required' => TRUE,
-		);
-		$form['mailing_address']['address_2'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Address 2'),
-			'#size' => 50,
-			'#required' => FALSE,
-		);
-		$form['mailing_address']['city'] = array(
-			'#type' => 'textfield',
-			'#title' => t('City'),
-			'#size' => 25,
-			'#required' => TRUE,
-		);
-			// The CSS for this module hides this next button if JS is enabled.
-		$form['mailing_address']['continue_to_dependent_dropdown'] = array(
-			'#type' => 'submit',
-			'#value' => t('Choose'),
-			'#attributes' => array('class' => 'next-button'),
-			'#submit' => array('signup_cc_form_continue'),
-		);
-		$form['mailing_address']['dependent_dropdown_holder']['dependent_dropdown'] = array(
-			'#type' => 'select',
-			'#title' => t('State/Province'),
+	$form['mailing_address']['address_1'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Address 1'),
+		'#size' => 50,
+		'#required' => FALSE,
+	);
+	$form['mailing_address']['address_2'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Address 2'),
+		'#size' => 50,
+		'#required' => FALSE,
+	);
+	$form['mailing_address']['city'] = array(
+		'#type' => 'textfield',
+		'#title' => t('City'),
+		'#size' => 25,
+		'#required' => FALSE,
+	);
+	// The CSS for this module hides this next button if JS is enabled.
+	$form['mailing_address']['continue_to_dependent_dropdown'] = array(
+		'#type' => 'submit',
+		'#value' => t('Choose'),
+		'#attributes' => array('class' => 'next-button'),
+		'#submit' => array('signup_cc_form_continue'),
+	);
+
+	$form['mailing_address']['dependent_dropdown_holder'] = array(
+		'#tree' => TRUE,
+		'#prefix' => '<div id="dependent-dropdown-wrapper" class="form-item">',
+		'#suffix' => '</div>',
+	);
+
+	$form['mailing_address']['dependent_dropdown_holder']['dependent_dropdown'] = array(
+		'#type' => 'select',
+		'#title' => t('State/Province'),
 
 		// when the form is rebuilt during processing (either AJAX or multistep),
 		// the $master_selction variable will now have the new value and so the
 		// options will change.
-			'#options' => _signup_cc_get_second_dropdown_options($master_selection),
-			'#default_value' => isset($my_values['dependent_dropdown']) ? $my_values['dependent_dropdown'] : '',
-		);
-		$form['mailing_address']['zip_code'] = array(
-			'#type' => 'textfield',
-			'#title' => t('Zip Code'),
-			'#size' => 10,
-			'#maxlength' => 10,
-			'#required' => TRUE,
-		);
-		$form['submit'] = array(
-			'#prefix' => '<div id="form-actions">',
-			'#suffix' => '</div>',
-			'#type' => 'submit',
-			'#value' => 'Sign Up',
-			'#weight' => 50
-		);
-		// Add basic css file
-		drupal_add_css(drupal_get_path('module','signup_cc') . '/css/signup.cc.css');
-		// Add additional validation using javaScript
-		drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.example.js');
-		drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.validate.min.js');
-		drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.cookie.js');
-		drupal_add_js(drupal_get_path('module','signup_cc') . '/js/signup.cc.form.js');
-		drupal_add_js("$(document).ready(function(){
-			$('input#edit-email').example('Please confirm your email address.');
-			$('input#edit-first').example('Please enter your first name.');
-			$('input#edit-last').example('Please enter your last name');
-			$('input#edit-phone').example('888.555.1212');
-			$('input#edit-phone-ext').example('1254');
-			$('input#edit-address-1').example('Postal Street Address (50 chars max)');
-			$('input#edit-address-2').example('Suite, Department, School, etc. (50 chars max)');
-			$('input#edit-city').example('Postal City');
-			$('input#edit-zip-code').example('95060-2243');
-			$('input#edit-title').example('Please enter your preferred job title.');
-			$('input#edit-employer').example('Please provide the name of your employer');
-		}); ",'inline');
-		
-		if($form_state['ahah_submission']){
-			// Clear the form errors.  We don't need to show any validation errors if this is an ahah submit, not a final submit
-			drupal_get_messages('error');
-			// Clear the form error state.
-			form_set_error(null, '', true);
-		}
-		return $form;
+		'#options' => _signup_cc_get_second_dropdown_options($master_selection),
+		'#default_value' => isset($my_values['dependent_dropdown']) ? $my_values['dependent_dropdown'] : '',
+	);
+	$form['mailing_address']['zip_code'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mailing Code'),
+		'#size' => 10,
+		'#maxlength' => 10,
+		'#required' => TRUE,
+	);
+	$form['submit'] = array(
+		'#prefix' => '<div id="form-actions">',
+		'#suffix' => '</div>',
+		'#type' => 'submit',
+		'#value' => 'Sign Up',
+		'#weight' => 50
+	);
+	// Add basic css file
+	drupal_add_css(drupal_get_path('module','signup_cc') . '/css/signup.cc.css');
+	// Add additional validation using javaScript
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.validate.min.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.example.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.cookie.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/signup.cc.form.js');
+	drupal_add_js("$(document).ready(function(){
+		$('input#edit-email').example('Please confirm your email address.');
+		$('input#edit-first').example('Please enter your first name.');
+		$('input#edit-last').example('Please enter your last name');
+		$('input#edit-phone').example('888.555.1212');
+		$('input#edit-phone-ext').example('1254');
+		$('input#edit-address-1').example('Postal Street Address (50 chars max)');
+		$('input#edit-address-2').example('Suite, Department, School, etc. (50 chars max)');
+		$('input#edit-city').example('Postal City');
+		$('input#edit-zip-code').example('95060-2243');
+		$('input#edit-title').example('Please enter your preferred job title.');
+		$('input#edit-employer').example('Please provide the name of your employer');
+	}); ",'inline');
+
+	if($form_state['ahah_submission']){
+	    // Clear the form errors.  We don't need to show any validation errors if this is an ahah submit, not a final submit
+	    drupal_get_messages('error');
+	    // Clear the form error state.
+	    form_set_error(null, '', true);
+	}
+	return $form;
 }
 
 /**
@@ -357,24 +393,23 @@ function signup_cc_form_validate($form, &$form_state) {
 	$country = $form_state['values']['master_dropdown'];
 	$state = $form_state['values']['dependant_dropdown'];
 	$zip_code = $form_state['values']['zip_code'];
-	
-	
-// 	if (($address_1 == '') && ($address_2 == '')){
+
+// these commented out - decision made to not require these	
+	// if (($address_1 == '') && ($address_2 == '')){
 // 	  form_set_error('address_1', t('Please list a postal address so that you may receive our postal mailings.'));
 // 	}
 // 	if ( $city == '' ){
-// 	  form_set_error('city', t('Please list a postal address so that you may receive our postal mailings.'));
+// 	  form_set_error('city', t('Please list a postal city so that you may receive our postal mailings.'));
 // 	}
- 	if (!signup_cc_valid_email_address($email)) {
- 		form_set_error('email', t('The email address ' . $email . ' is not a valid email address.'));
- 	}
-	//$mail_err = signup_valid_email_address2($email);
-	//if ( $mail_err!='' ) {
-	//	form_set_error('email', t($mail_err));
-	//}
+	if (!signup_cc_valid_email_address($email)) {
+		form_set_error('email', t('The email address ' . $email . ' is not a valid email address.'));
+	}
+
 	$test_country = ( $country=="US" || $country =="CA" || $country =="United States" || $country =="Canada" )? "US" : "INT";
     if ($test_country=="US"){
-       $msg_err = !( signup_valid_cc_postal_code( $zip_code,$test_country ))? '' : t('Please enter a valid postal code.');
+   // needs testing
+     //  $msg_err = !( signup_cc_valid_postal_code( $zip_code,$test_country ))? '' : t('Your postal code is not correct for the country chosen.');
+    //   if !( $msg_err == ''){ form_set_error('zip_code', $msg_err); }
        //$zip_code = (($msg_err !='') && ( $zip_code != ''))? signup_format_postal_code($zip_code,$test_country) : $zip_code;
     }
 
@@ -391,18 +426,19 @@ function signup_cc_format_phone($phone,$cc_phone){
 		$formattedPhone = substr($formattedPhone,0,3).$sep.substr($formattedPhone,3,3).$sep.substr($formattedPhone,6,4); // format for US (NANP)
 	} 
 	return $formattedPhone;
-} // function signup_cc_format_phone
+} // function signup_format_phone
+
 
 /**
  * Default submit handler for form. This one happens when the main submit
  * button is pressed.
  */
 function signup_cc_form_submit($form, &$form_state) {
-
-		// If an AHAH submission, it's just the dependent dropdown working.
+	// If an AHAH submission, it's just the dependent dropdown working.
 	if (!empty($form_state['ahah_submission'])) {
 		return;
 	}
+
 	if ($form_state['clicked_button']['#id'] == 'edit-submit') {
 			$form_state['rebuild'] = FALSE;
 			$email = signup_cc_trim($form_state['values']['email']);
@@ -423,13 +459,13 @@ function signup_cc_form_submit($form, &$form_state) {
 			$employer = signup_cc_trim($form_state['values']['employer']);
 			$employer_type = $form_state['values']['employer_type'];
 			
-			if ($form_state['values']['employer_type'] == 'select') {
+			if ($form_state['values']['employer_type'] == '- select -') {
 				$employer_type = NULL;
 			} else {
 				$employer_type = $form_state['values']['employer_type'];
 			}
 			
-			if ($form_state['values']['role'] == 'select') {
+			if ($form_state['values']['role'] == '- select -') {
 				$role = NULL;
 			} else {
 				$role = $form_state['values']['role'];
@@ -458,57 +494,142 @@ function signup_cc_form_submit($form, &$form_state) {
 			}
 			
 			$zip_code = signup_cc_trim($form_state['values']['zip_code']);
-		}
+			
+			// let's form a nice thank you message that tells them what we received
+			$li_name = ( $sal == '' )? $fname.' '.$lname : $sal.' '.$fname.' '.$lname;
+			$li_phone = ( $phone != '' )? $cc_phone.' '.$phone : '';
+			$li_phone = (( $phone != '' ) && ( $phone_ext != '' ))? $li_phone.' x'.$phone_ext : $li_phone;
+			$li_phone = ( $li_phone != '' )? '<li>'.$li_phone.'</li>' : '';
+			$li_address_2 = ( $li_address_2 != '' )? '<li>Address 2: '.$li_address_2.'</li>' : '';
+			//$li_country = ( $state != '' )? '<li>State: '.$state.', Country: '.$country.' '.$zip_code.'</li>' : '<li>Country: '.$country.' '.$zip_code.'</li>';
+			$li_country = ( $state != '' )? '<li><em>State:</em> '.$state.'<br />Country: '.$country.'<br />Mailing Code: '.$zip_code.'</li>' : '<li>Country: '.$country.' '.$zip_code.'</li>';
+			$info_added_message = '<ul id="signup-thanks"><li><em>Name:</em> '.$li_name."</li><li>Email: $email</li>".$li_phone."<li>Address 1: $address_1</li>".$li_address_2."<li>City: $city</li>".$li_country."</ul>";
+			
+						// $email, $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code
+ 			// if (db_result(db_query("SELECT COUNT(*) FROM {ntctables.mailsignup} WHERE LOWER(email1) = LOWER('%s')", $email)) > 0) {
+ 			// 	db_query("UPDATE {ntctables.mailsignup} SET sal = '%s', first_name = '%s', last_name = '%s', phone_country_code = '%s', phone = '%s', phone_extension = '%s', title = '%s', employer = '%s', employer_type = '%s', role = '%s', address_type = '%s', address1 = '%s', address2 = '%s', city = '%s', state = '%s', country = '%s', mailing_code = '%s' WHERE email1 = '%s'", $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code, $email);
+ 			// 	$message = "Thank you, your information has been updated.";
+ 			// 	$message .= $info_added_message;
+ 			// 	drupal_set_message(t($message));
+ 			// 	//drupal_set_message('<pre>' . print_r($address_type, TRUE) . '</pre>');
+ 			// } else {
+ 			// 				db_query("INSERT INTO {ntctables.mailsignup} (email1, sal, first_name, last_name, phone_country_code, phone, phone_extension, title, employer, employer_type, role, address_type, address1, address2, city, state, country, mailing_code) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", $email, $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code);
+ 			// 				//drupal_set_message(t('Thank you for signing up.'));
+ 			// 				//drupal_set_message('<pre>' . print_r($address_type, TRUE) . '</pre>');
+ 			// 				//$message='The following information was added:<pre>' . print_r($form_state['values'],true) . '</pre>';
+ 			// 				$message = "The following items were added:";
+ 			// 				$message .= $info_added_message; 
+ 			// 	drupal_set_message(t($message));
+			// }
+			$policy_contact = l('Our Policy Team','/contact/policy');
+			$address_type_text = ( $address_type == '0')? 'Office' : 'Home';
+			$state_name = $state;
+			$country_name = $country;
+			
+			module_load_include('php', 'signup_cc', 'cc_class');
 
-    $policy_email = l('Policy Team','/contact/policy'); 
-    
-	module_load_include('php', 'signup_cc', 'cc_class');
-	
-	$ccContactOBJ = new CC_Contact();
-	$ccListOBJ = new CC_List();
-	
-	$postFields = array();
-	$postFields['email_address'] = $email;
-	$postFields['first_name'] = $fname;
-	$postFields['last_name'] = $lname;
-	$postFields["address_line_1"] = $address_1;
-	$postFields["address_line_2"] = $address_2;
-	$postFields["zip_code"] = $zip_code;
-	$postFields['mail_type'] = 'HTML';
-	$postFields['lists'] = array('http://api.constantcontact.com/ws/customers/ntcpolicy/lists/3');
-	
-	$contactXML = $ccContactOBJ->createContactXML(null,$postFields);
-	
-	 if (!$ccContactOBJ->addSubscriber($contactXML)) {
-	  drupal_set_message('There was an error while adding your information to our list, please contact ' . $policy_contact' .', 'error');
-	}	else {
-	  drupal_set_message('Thank you for signing up', 'status');
+			$ccContactOBJ = new CC_Contact();
+			$ccListOBJ = new CC_List();
+
+			$postFields = array();
+			$postFields['email_address'] = $email;
+			$postFields['first_name'] = $fname;
+			$postFields['last_name'] = $lname;
+			$postFields['address_line_1'] = $address_1;
+			$postFields['address_line_2'] = $address_2;
+			$postFields['company_name'] = $employer;
+			$postFields['job_title'] = $title;
+			$postFields['city_name'] = $city;
+			$postFields['state_name'] = $state;
+			$postFields['country'] = $country;
+			$postFields['zip_code'] = $zip_code;
+			$postFields['custom_fields'] = array(
+							'1' => $email,
+							'2' => $employer_type,
+							'3' => $role,
+							'4' => $phone_cc,
+							'5' => $phone,
+							'6' => $phone_ext,	
+							'7' => $address_type_text,
+							'8' => $sal,
+							'9' => $state_name,
+							'10' => $country_name,
+					);
+			$postFields['mail_type'] = 'HTML';
+			$postFields['lists'] = array('http://api.constantcontact.com/ws/customers/ntcpolicy/lists/3');
+			
+			$contactXML = $ccContactOBJ->createContactXML(null,$postFields);
+
+			 if (!$ccContactOBJ->addSubscriber($contactXML)) {
+			  drupal_set_message('There was an error while adding your information to our list, please contact ' . $policy_contact, 'error');
+			}	else {
+			  drupal_set_message('Thank you for signing up', 'status');
+			}
+			
+			// drupal_set_message('<pre>' . print_r($contactXML, TRUE) . '</pre>');
 	}
+
+	// edit-next or anything else will cause rebuild.
+	$form_state['rebuild'] = TRUE;
 }
+
 
 function signup_cc_block($op = 'list', $delta = '', $edit = array()) {
 	// The $op parameter determines what piece of information is being requested.
 	switch ($op) {
 		case 'list':
-			$blocks['signup'] = array(
-				'info' => t('Policy Signup'),
+			$blocks['signup_cc'] = array(
+				'info' => t('Policy Sign up'),
 			);
 			return $blocks;
 		case 'view':
 			switch ($delta) {
-				case 'signup':
+				case 'signup_cc':
 				// Add basic css file
 				drupal_add_css(drupal_get_path('module','signup_cc') . '/css/signup.cc.css');
 				// Add additional validation using javaScript
 				drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.validate.min.js');
 				drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.cookie.js');
+				drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.example.js');
 				drupal_add_js(drupal_get_path('module','signup_cc') . '/js/signup.cc.form.js');
-					$block['subject'] = t('Policy Signup');
-					$block['content'] = drupal_get_form('signup_cc_block_form');
+					$block['subject'] = t('Policy Sign up');
+					$block['content'] = drupal_get_form('signup_cc_data_block');
 				break;
 			}
 		return $block;
 	}
+}
+
+// Create sign up block form used in hook_block()
+function signup_cc_data_block($form_state) {
+	$form['email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Email'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);	
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Sign Up'
+	);
+	$form['#redirect'] = 'signup/policy';
+	return $form;
+}
+
+// Validate block form
+function signup_cc_data_block_validate($form, &$form_state) {
+	$mail = $form_state['values']['email'];
+	if (!signup_cc_valid_email_address($mail)) {
+		form_set_error('mail', t('The e-mail address ' . $mail . ' is not a valid email address.'));
+	}
+}
+
+// Submit block form
+function signup_cc_data_block_submit($form, &$form_state) {
+    $signup_message = 'To complete your signup and to serve you better we’d be grateful if you would take a moment to supply us with more information.<br />';
+//    $signup_message = 'If you have signed up here previously, then use the same email address to retieve your information and update it appropriately.';
+//	drupal_set_message(variable_get('sign_up_update', t($signup_message)));
+	drupal_set_message(t($signup_message));
 }
 
 /**
@@ -770,7 +891,7 @@ function _signup_cc_get_first_dropdown_options() {
 		t('Zambia'),
 		t('Zimbabwe')	
 		));
-} // _signup_cc_get_first_dropdown_options
+}
 
 /**
  * Helper function to populate the second dropdown. This would normally be
@@ -879,35 +1000,8 @@ function _signup_cc_get_second_dropdown_options($key = '') {
 	else {
 		return array();
 	}
-} // end _signup_cc_get_second_dropdown_options
-
-function signup_cc_block_form($form_state) {
-	$form['email'] = array(
-		'#type' => 'textfield',
-		'#title' => t('Email'),
-		'#size' => 40,
-		'#required' => TRUE,
-	);	
-	$form['submit'] = array(
-		'#type' => 'submit',
-		'#value' => 'Sign Up'
-	);
-	$form['#redirect'] = 'signup/policy';
-	return $form;
 }
 
-// Validate block form
-function signup_cc_block_form_validate($form, &$form_state) {
-	$mail = $form_state['values']['email'];
-	if (!signup_cc_valid_email_address($mail)) {
-		form_set_error('mail', t('The e-mail address ' . $mail . ' is not a valid email address.'));
-	}
-}
-
-// Submit block form
-function signup_cc_block_form_submit($form, &$form_state) {
-	drupal_set_message(variable_get('sign_up_update', 'Please provide additional information.'));
-}
 
 //function used to trim whitespace and remove non-pritable characters
 function signup_cc_trim($string) {
@@ -926,7 +1020,7 @@ function signup_cc_valid_email_address($mail) {
 	return preg_match("/^$user@($domain|(\[($ipv4|$ipv6)\]))$/", $mail);
 }
 
-function signup_cc_verify_email($mail) {
+function signup_cc_valid_email_verify($mail) {
   // Add php email verification file
   drupal_add_php(drupal_get_path('module','signup_cc') . 'email_verify.php');
   //call to validateEmail in email_verify.php
@@ -935,7 +1029,7 @@ function signup_cc_verify_email($mail) {
   } else {
     return validateEmail($mail);
   }
-}// function signup_cc_verify_email
+}// function signup_valid_email_address
 
 function signup_cc_format_postal_code($zip_code,$country='US'){
 	// formats a postal code in US or International format
