@@ -1,5 +1,5 @@
 $(document).ready(function(){
-	$('#signup-cc-block-form').validate({
+	$('#signup-cc-data-block').validate({
 		rules: {
 			email: {
 				required: true,
@@ -31,15 +31,15 @@ $(document).ready(function(){
 			last: {
 				required: 'Please enter your last name.'
 			},
-// 			address_1: {
-// 				required: 'Please enter your street address.'
-// 			},
-// 			city: {
-// 				required: 'Please enter your city.'
-// 			},
-// 			zip_code: {
-// 				required: 'Please enter your mailing code.'
-// 			},
+			address_1: {
+				required: 'Please enter your street address.'
+			},
+			city: {
+				required: 'Please enter your city.'
+			},
+			zip_code: {
+				required: 'Please enter your postal code.'
+			},
 			title: {
 				required: 'Please enter your job title.'
 			},
@@ -53,7 +53,7 @@ $(document).ready(function(){
 				$(error).css('left', w);
 		}
 	});
-	$('#signup-cc-block-form, #signup-cc-form').submit(function(){
+	$('#signup-cc-data-block, #signup-cc-form').submit(function(){
 		var email = $('#edit-email').val()
 		$.cookie('signup', email, { expires: 7, path: '/' });
 	});
