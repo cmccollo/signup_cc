@@ -1,4 +1,19 @@
 $(document).ready(function(){
+
+	$('#signup-cc-form span.form-required').text('(required)').css('font-size','0.85em');
+
+	$('#signup-cc-form input#edit-email').example('Please confirm your email address.');
+	$('#signup-cc-form input#edit-first').example('Please enter your first name.');
+	$('#signup-cc-form input#edit-last').example('Please enter your last name');
+	$('#signup-cc-form input#edit-phone').example('888.555.1212');
+	$('#signup-cc-form input#edit-phone-ext').example('1254');
+	$('#signup-cc-form input#edit-address-1').example('Postal Street Address (50 chars max)');
+	$('#signup-cc-form input#edit-address-2').example('Suite, Department, School, etc. (50 chars max)');
+	$('#signup-cc-form input#edit-city').example('Postal City');
+	$('#signup-cc-form input#edit-zip-code').example('95060-2243');
+	$('#signup-cc-form input#edit-title').example('Please enter your preferred job title.');
+	$('#signup-cc-form input#edit-employer').example('Please provide the name of your employer');
+
 	$('#signup-cc-data-block').validate({
 		rules: {
 			email: {
@@ -7,6 +22,7 @@ $(document).ready(function(){
 			}
 		}
 	});
+	
 	$('#signup-cc-form').validate({
 		rules: {
 			email: {
@@ -30,12 +46,6 @@ $(document).ready(function(){
 			},
 			last: {
 				required: 'Please enter your last name.'
-			},
-			address_1: {
-				required: 'Please enter your street address.'
-			},
-			city: {
-				required: 'Please enter your city.'
 			},
 			zip_code: {
 				required: 'Please enter your postal code.'
