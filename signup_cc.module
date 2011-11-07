@@ -1,74 +1,1055 @@
-$(document).ready(function(){
+<?php
 
-	$('#signup-cc-form span.form-required').text('(required)').css('font-size','0.85em');
 
-	$('#signup-cc-form input#edit-email').example('Please confirm your email address.');
-	$('#signup-cc-form input#edit-first').example('Please enter your first name.');
-	$('#signup-cc-form input#edit-last').example('Please enter your last name');
-	$('#signup-cc-form input#edit-phone').example('888.555.1212');
-	$('#signup-cc-form input#edit-phone-ext').example('1254');
-	$('#signup-cc-form input#edit-address-1').example('Postal Street Address (50 chars max)');
-	$('#signup-cc-form input#edit-address-2').example('Suite, Department, School, etc. (50 chars max)');
-	$('#signup-cc-form input#edit-city').example('Postal City');
-	$('#signup-cc-form input#edit-zip-code').example('95060-2243');
-	$('#signup-cc-form input#edit-title').example('Please enter your preferred job title.');
-	$('#signup-cc-form input#edit-employer').example('Please provide the name of your employer');
+/**
+ * Implement hook_menu().
+ *
+ * Note that each item has both an entry point to prepare the form, and also
+ * a callback function that provides and AHAH menu callback.
+ */
+function signup_cc_menu() {
+	$items = array();
+	$items['signup/policy'] = array(
+		'title' => 'Policy Signup',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('signup_cc_form'),
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+	$items['signup_cc/form/callback'] = array(
+		'title' => 'Policy Signup',
+		'page callback' => 'signup_cc_form_callback',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+	return $items;
+}
 
-	$('#signup-cc-data-block').validate({
-		rules: {
-			email: {
-				required: true,
-				email: true,
+/**
+ * Does the very standard things that must be done in any normal callback.
+ */
+function signup_cc_callback_helper() {
+	$form_state = array('storage' => NULL, 'submitted' => FALSE);
+	$form_build_id = $_POST['form_build_id'];
+	$form = form_get_cache($form_build_id, $form_state);
+	$args = $form['#parameters'];
+	$form_id = array_shift($args);
+	$form_state['post'] = $form['#post'] = $_POST;
+	// Enable the submit/validate handlers to determine whether AHAH-submittted.
+	$form_state['ahah_submission'] = TRUE;
+	$form['#programmed'] = $form['#redirect'] = FALSE;
+	drupal_process_form($form_id, $form, $form_state);
+	$form = drupal_rebuild_form($form_id, $form_state, $args, $form_build_id);
+	return $form;
+}
+
+/**
+ * Implements hook_init() to add module css.
+ */
+function signup_cc_init() {
+	drupal_add_css(drupal_get_path('module', 'signup_cc') . '/signup.cc.css');
+	drupal_add_js(drupal_get_path('module','signup') . '/js/jquery.example.js');
+	drupal_add_js(drupal_get_path('module','signup') . '/js/signup.cc.form.js');
+}
+
+/**
+ * Form builder function to create a form showing dependent dropdowns. The
+ * second dropdown has its values populated based on the first.
+ * @param $form_state
+ * @param $my_values
+ */
+function signup_cc_form(&$form_state, $my_values = array()) {
+	$form = array();
+
+	// get the list of options to populate the first dropdown
+	$initial_options = _signup_cc_get_first_dropdown_options();
+
+	// if we have a value for the first dropdown from $form_state['values'] we use
+	// this both as the default value for the first dropdown and also as a
+	// parameter to pass to the function that retrieves the options for the
+	// second dropdown.
+	$master_selection = !empty($form_state['values']['master_dropdown']) ? $form_state['values']['master_dropdown'] : t('- select -');
+
+	$form['intro'] = array(
+		'#prefix' => '<div id="form-intro">',
+		'#suffix' => '</div>',
+		'#type'   => 'markup',
+		'#weight' => 0,
+		'#value'  => t('To complete your signup and to serve you better we’d be grateful if you would take a moment to supply us with more information.')
+	);
+	$form['email_address'] = array(
+		'#type'   => 'fieldset',
+		'#title'  => t(''),
+		'#weight' => 1,
+		'#attributes' => array(
+			'id' => 'email-address'
+		)
+	);
+	$form['email_address']['temp_email'] = array(
+		'#type'  => 'textfield',
+		'#title' => t('Email'),
+		'#size'  => 40,
+		'#required' => TRUE,
+	);
+	$form['email_address']['email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Verify Email'),
+		'#size' => 40,
+		'#required' => TRUE,
+		'#attributes' => array(
+			'autocomplete' => 'off'
+		)
+	);
+	$form['personal_info'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Personal Information'),
+		'#weight' => 2,
+		'#attributes' => array(
+			'id' => 'personal-info'
+		)
+	);
+	$form['personal_info']['salutation'] = array(
+		'#type' => 'select',
+		'#title' => t('Salutation'),
+		'#options' => array(
+			'select' => '- select -',
+			'Dr.' => t('Dr.'),
+			'Mr.' => t('Mr.'),
+			'Ms.' => t('Ms.'),
+			'Miss' => t('Miss'),
+			'Mrs.' => t('Mrs.'),
+			'Prof.' => t('Prof.'),
+			'Rabbi' => t('Rabbi'),
+			'Hon.' => t('Hon.'),
+			'Assemblymember' => t('Assemblymember'),
+			'Chancellor' => t('Chancellor'),
+			'Governor' => t('Governor'),
+			'Representative' => t('Representative'),
+			'Senator' => t('Senator')
+		  ),
+		'#required' => FALSE,
+	);
+	$form['personal_info']['first'] = array(
+		'#type' => 'textfield',
+		'#title' => t('First Name'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);
+	$form['personal_info']['last'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Last Name'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);
+	$form['personal_info']['country_phone'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Phone'),
+		'#size' => 3,
+		'#default_value' => '1',
+		'#maxlength' => 3,
+		'#required' => FALSE,
+		'#description' => t('country code'),
+		'#attributes' => array(
+				'id' => 'phone_cc'
+			)
+	);
+	$form['personal_info']['phone'] = array(
+		'#type' => 'textfield',
+		'#title' => t(''),
+		'#size' => 17,
+		'#required' => FALSE,
+	);
+	$form['personal_info']['phone_ext'] = array(
+		'#type' => 'textfield',
+		'#title' => t(''),
+		'#size' => 6,
+		'#required' => FALSE,
+		'#description' => t('extension'),
+	);
+	$form['employment'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Employer Information'),
+		'#weight' => 3,
+		'#attributes' => array(
+			'id' => 'employment'
+		)
+	);
+	$form['employment']['title'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Title'),
+		'#size' => 50,
+		'#required' => TRUE,
+	);
+	$form['employment']['employer'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Employer'),
+		'#size' => 50,
+		'#required' => TRUE,
+	);
+	$form['employment']['employer_type'] = array(
+		'#type' => 'select',
+		'#title' => t('Employer Type'),
+		'#required' => FALSE,
+		'#options' => array(
+			'select' => '- select -',
+			'School District Office' => t('School District Office'),
+			'Pre K-12 School' => t('Pre K-12 School'),
+			'University' => t('University'),
+			'State Agency' => t('State Agency'),
+			'Federal Government' => t('Federal Government'),
+			'Pre K-12 School' => t('Pre K-12 School'),
+			'Foundation' => t('Foundation'),
+			'Non-Profit Organization' => t('Non-Profit Organization'),
+			'Business' => t('Business'),
+			'Self-Employed' => t('Self-Employed'),
+			'Other' => t('Other'),
+		),
+	);
+	$form['employment']['role'] = array(
+		'#type' => 'select',
+		'#title' => t('Role'),
+		'#required' => FALSE,
+		'#options' => array(
+			'select' => '- select -',
+			'Policy Maker' => t('Policy Maker'),
+			'School Leader' => t('School Leader'),
+			'Induction Leader' => t('Induction Leader'),
+			'Beginning Teacher' => t('Beginning Teacher'),
+			'Mentor' => t('Mentor'),
+			'Teacher' => t('Teacher'),
+			'Union Leader' => t('Union Leader'),
+			'Central Office Administrator / Coordinator' => t('Central Office Administrator / Coordinator'),
+			'University Faculty / Supervisor' => t('University Faculty / Supervisor'),
+			'Professional Developer' => t('Professional Developer'),
+			'Researcher' => t('Researcher'),
+			'Other' => t('Other'),
+		),
+	);
+	$form['mailing_address'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Mailing Address'),
+		'#weight' => 3,
+		'#attributes' => array(
+			'id' => 'mailing-address'
+		)
+	);
+	$form['mailing_address']['address_type'] = array(
+		'#prefix' => '<div id="address-type">',
+		'#suffix' => '</div>',
+		'#type' => 'radios',
+		'#title' => t('Address Type'),
+		'#required' => FALSE,
+		'#default_value' => 0,
+		'#options' => array(
+				t('Office'),
+				t('Home'),
+		)
+	);
+	$form['mailing_address']['master_dropdown'] = array(
+		'#type' => 'select',
+		'#title' => 'Country',
+		'#options' => $initial_options,
+		'#default_value' => $master_selection,
+		'#ahah' => array(
+			'path' => 'signup_cc/form/callback',
+			'wrapper' => 'dependent-dropdown-wrapper',
+			// 'event' => 'change', // default value: does not need to be set explicitly.
+		),
+		'#attributes' => array('class' => 'master-dropdown'),
+		'#description' => t('Select country; for US & Canada, state list below will be populated accordingly.'), 
+	);
+	$form['mailing_address']['address_1'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Address 1'),
+		'#size' => 50,
+		'#required' => FALSE,
+	);
+	$form['mailing_address']['address_2'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Address 2'),
+		'#size' => 50,
+		'#required' => FALSE,
+	);
+	$form['mailing_address']['city'] = array(
+		'#type' => 'textfield',
+		'#title' => t('City'),
+		'#size' => 25,
+		'#required' => FALSE,
+	);
+	// The CSS for this module hides this next button if JS is enabled.
+	$form['mailing_address']['continue_to_dependent_dropdown'] = array(
+		'#type' => 'submit',
+		'#value' => t('Choose'),
+		'#attributes' => array('class' => 'next-button'),
+		'#submit' => array('signup_cc_form_continue'),
+	);
+
+	$form['mailing_address']['dependent_dropdown_holder'] = array(
+		'#tree' => TRUE,
+		'#prefix' => '<div id="dependent-dropdown-wrapper" class="form-item">',
+		'#suffix' => '</div>',
+	);
+
+	$form['mailing_address']['dependent_dropdown_holder']['dependent_dropdown'] = array(
+		'#type' => 'select',
+		'#title' => t('State/Province'),
+
+		// when the form is rebuilt during processing (either AJAX or multistep),
+		// the $master_selction variable will now have the new value and so the
+		// options will change.
+		'#options' => _signup_cc_get_second_dropdown_options($master_selection),
+		'#default_value' => isset($my_values['dependent_dropdown']) ? $my_values['dependent_dropdown'] : '',
+	);
+	$form['mailing_address']['zip_code'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Mailing Code'),
+		'#size' => 10,
+		'#maxlength' => 10,
+		'#required' => TRUE,
+	);
+	$form['submit'] = array(
+		'#prefix' => '<div id="form-actions">',
+		'#suffix' => '</div>',
+		'#type' => 'submit',
+		'#value' => 'Sign Up',
+		'#weight' => 50
+	);
+	// Add basic css file
+	drupal_add_css(drupal_get_path('module','signup_cc') . '/css/signup.cc.css');
+	// Add additional validation using javaScript
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.validate.min.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.example.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/jquery.cookie.js');
+	drupal_add_js(drupal_get_path('module','signup_cc') . '/js/signup.cc.form.js');
+
+	if($form_state['ahah_submission']){
+	    // Clear the form errors.  We don't need to show any validation errors if this is an ahah submit, not a final submit
+	    drupal_get_messages('error');
+	    // Clear the form error state.
+	    form_set_error(null, '', true);
+	}
+	return $form;
+}
+
+/**
+ * The AHAH callback. It processes the form using signup_callback_helper()
+ * and then
+ */
+function signup_cc_form_callback() {
+	$form = signup_cc_callback_helper();
+
+	$changed_elements = $form['mailing_address']['dependent_dropdown_holder'];
+
+	// Prevent duplicate wrappers.
+	unset($changed_elements['#prefix'], $changed_elements['#suffix']);
+
+	$output = theme('status_messages') . drupal_render($changed_elements);
+
+	drupal_json(array(
+		'status'   => TRUE,
+		'data'     => $output,
+	));
+}
+
+/**
+* Submit handler for 'continue_to_dependent_dropdown'.
+*/
+function signup_cc_form_continue($form, &$form_state) {
+	$values = $form_state['values'];
+	unset($form_state['submit_handlers']);
+	form_execute_handlers('submit', $form, $form_state);
+	$form_state['my_values'] = $values;
+	$form_state['rebuild'] = TRUE;
+}
+
+function signup_cc_form_validate($form, &$form_state) {
+	$temp_mail = $form_state['values']['temp_email'];
+	$email = $form_state['values']['email'];
+	$sal = $form_state['values']['salutation'];
+	$fname = $form_state['values']['first'];
+	$lname = $form_state['values']['last'];
+	$cc_phone = $form_state['values']['country_phone'];
+	$phone = $form_state['values']['phone'];
+	$phone_ext = $form_state['values']['phone_ext'];
+	$title = $form_state['values']['title'];
+	$employer = $form_state['values']['employer'];
+	$employer_type = $form_state['values']['employer_type'];
+	$role = $form_state['values']['role'];
+	$address_1 = $form_state['values']['address_1'];
+	$address_2 = $form_state['values']['address_2'];
+	$city = $form_state['values']['city'];
+	$country = $form_state['values']['master_dropdown'];
+	$state = $form_state['values']['dependant_dropdown'];
+	$zip_code = $form_state['values']['zip_code'];
+
+// these commented out - decision made to not require these	
+	// if (($address_1 == '') && ($address_2 == '')){
+// 	  form_set_error('address_1', t('Please list a postal address so that you may receive our postal mailings.'));
+// 	}
+// 	if ( $city == '' ){
+// 	  form_set_error('city', t('Please list a postal city so that you may receive our postal mailings.'));
+// 	}
+	if (!signup_cc_valid_email_address($email)) {
+		form_set_error('email', t('The email address ' . $email . ' is not a valid email address.'));
+	}
+
+	$test_country = ( $country=="US" || $country =="CA" || $country =="United States" || $country =="Canada" )? "US" : "INT";
+    if ($test_country=="US"){
+   // needs testing
+     //  $msg_err = !( signup_cc_valid_postal_code( $zip_code,$test_country ))? '' : t('Your postal code is not correct for the country chosen.');
+    //   if !( $msg_err == ''){ form_set_error('zip_code', $msg_err); }
+       //$zip_code = (($msg_err !='') && ( $zip_code != ''))? signup_format_postal_code($zip_code,$test_country) : $zip_code;
+    }
+
+}// end function signup form validate
+
+function signup_cc_format_phone($phone,$cc_phone){
+	// formats a phone number in US or International format
+	// for consistent input in to database
+	// US (NANP - North American Numbering Plan) phone types are: JM, TC, KN, LC, VC, MS, GD, DO, KY, AG, BS, VG, AI, BM
+	$formattedPhone = '';
+	$sep = "."; # the separator for areacode.prefix.suffix; usually "-" or "."
+	$formattedPhone = preg_replace('/\D/', '', $phone); # remove non-numbers; need to rework to keep [-0-9\s\\/+\(\)]*
+	if ( $cc_phone == '1' ){
+		$formattedPhone = substr($formattedPhone,0,3).$sep.substr($formattedPhone,3,3).$sep.substr($formattedPhone,6,4); // format for US (NANP)
+	} 
+	return $formattedPhone;
+} // function signup_format_phone
+
+
+/**
+ * Default submit handler for form. This one happens when the main submit
+ * button is pressed.
+ */
+function signup_cc_form_submit($form, &$form_state) {
+	// If an AHAH submission, it's just the dependent dropdown working.
+	if (!empty($form_state['ahah_submission'])) {
+		return;
+	}
+
+	if ($form_state['clicked_button']['#id'] == 'edit-submit') {
+			$form_state['rebuild'] = FALSE;
+			$email = signup_cc_trim($form_state['values']['email']);
+			
+			if ($form_state['values']['salutation'] == 'select') {
+				$sal = NULL;
+			} else {
+				$sal = $form_state['values']['salutation'];
 			}
-		}
-	});
+			
+			$fname = signup_cc_trim($form_state['values']['first']);
+			$lname = signup_cc_trim($form_state['values']['last']);
+			$cc_phone = signup_cc_trim($form_state['values']['country_phone']);
+			$temp_phone = signup_cc_trim($form_state['values']['phone']);
+			$phone_ext = signup_cc_trim($form_state['values']['phone_ext']);
+			$phone = signup_cc_format_phone($temp_phone,$cc_phone);
+			$title = signup_cc_trim($form_state['values']['title']);
+			$employer = signup_cc_trim($form_state['values']['employer']);
+			$employer_type = $form_state['values']['employer_type'];
+			
+			if ($form_state['values']['employer_type'] == '- select -') {
+				$employer_type = NULL;
+			} else {
+				$employer_type = $form_state['values']['employer_type'];
+			}
+			
+			if ($form_state['values']['role'] == '- select -') {
+				$role = NULL;
+			} else {
+				$role = $form_state['values']['role'];
+			}
+			
+			$address_1 = signup_cc_trim($form_state['values']['address_1']);
+			$address_2 = signup_cc_trim($form_state['values']['address_2']);
+			$city = signup_cc_trim($form_state['values']['city']);
+			
+			if (empty($address_1)) {
+				$address_type = NULL;
+			} else {
+				$address_type = $form_state['values']['address_type'];
+			}
+			
+			if ($form_state['values']['master_dropdown'] == '- select -') {
+				$country = NULL;
+				$countries = array();
+			} else {
+				$country = $form_state['values']['master_dropdown'];
+				$countries = signup_cc_get_list('countries');
+			}
+			
+			if ($form_state['values']['dependent_dropdown_holder']['dependent_dropdown'] == '- select -') {
+				$state = NULL;
+				$states = array();
+			} else {
+				$state = $form_state['values']['dependent_dropdown_holder']['dependent_dropdown'];
+				$states = signup_cc_get_list('states');
+			}
+			
+			$zip_code = signup_cc_trim($form_state['values']['zip_code']);
+			
+			// let's form a nice thank you message that tells them what we received
+			$li_name = ( $sal == '' )? $fname.' '.$lname : $sal.' '.$fname.' '.$lname;
+			$li_phone = ( $phone != '' )? $cc_phone.' '.$phone : '';
+			$li_phone = (( $phone != '' ) && ( $phone_ext != '' ))? $li_phone.' x'.$phone_ext : $li_phone;
+			$li_phone = ( $li_phone != '' )? '<li>'.$li_phone.'</li>' : '';
+			$li_address_2 = ( $li_address_2 != '' )? '<li>Address 2: '.$li_address_2.'</li>' : '';
+			//$li_country = ( $state != '' )? '<li>State: '.$state.', Country: '.$country.' '.$zip_code.'</li>' : '<li>Country: '.$country.' '.$zip_code.'</li>';
+			$li_country = ( $state != '' )? '<li><em>State:</em> '.$states[$state].'<br />Country: '.$countries[$country].'<br />Mailing Code: '.$zip_code.'</li>' : '<li>Country: '.$countries[$country].' '.$zip_code.'</li>';
+			$info_added_message = '<ul id="signup-thanks"><li><em>Name:</em> '.$li_name."</li><li>Email: $email</li>".$li_phone."<li>Address 1: $address_1</li>".$li_address_2."<li>City: $city</li>".$li_country."</ul>";
+			
+						// $email, $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code
+ 			// if (db_result(db_query("SELECT COUNT(*) FROM {ntctables.mailsignup} WHERE LOWER(email1) = LOWER('%s')", $email)) > 0) {
+ 			// 	db_query("UPDATE {ntctables.mailsignup} SET sal = '%s', first_name = '%s', last_name = '%s', phone_country_code = '%s', phone = '%s', phone_extension = '%s', title = '%s', employer = '%s', employer_type = '%s', role = '%s', address_type = '%s', address1 = '%s', address2 = '%s', city = '%s', state = '%s', country = '%s', mailing_code = '%s' WHERE email1 = '%s'", $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code, $email);
+ 			// 	$message = "Thank you, your information has been updated.";
+ 			// 	$message .= $info_added_message;
+ 			// 	drupal_set_message(t($message));
+ 			// 	//drupal_set_message('<pre>' . print_r($address_type, TRUE) . '</pre>');
+ 			// } else {
+ 			// 				db_query("INSERT INTO {ntctables.mailsignup} (email1, sal, first_name, last_name, phone_country_code, phone, phone_extension, title, employer, employer_type, role, address_type, address1, address2, city, state, country, mailing_code) VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", $email, $sal, $fname, $lname, $cc_phone, $phone, $phone_ext, $title, $employer, $employer_type, $role, $address_type, $address_1, $address_2, $city, $state, $country, $zip_code);
+ 			// 				//drupal_set_message(t('Thank you for signing up.'));
+ 			// 				//drupal_set_message('<pre>' . print_r($address_type, TRUE) . '</pre>');
+ 			// 				//$message='The following information was added:<pre>' . print_r($form_state['values'],true) . '</pre>';
+ 			// 				$message = "The following items were added:";
+ 			// 				$message .= $info_added_message; 
+ 			// 	drupal_set_message(t($message));
+			// }
+			$policy_contact = l('Our Policy Team','/contact/policy');
+			$address_type_text = ( $address_type == '0')? 'Office' : 'Home';
+			$state_name = $state;
+			$country_name = $country;
+			
+			module_load_include('php', 'signup_cc', 'cc_class');
+
+			$ccContactOBJ = new CC_Contact();
+			$ccListOBJ = new CC_List();
+
+			$postFields = array();
+			$postFields['email_address'] = $email;
+			$postFields['first_name'] = $fname;
+			$postFields['last_name'] = $lname;
+			$postFields['address_line_1'] = $address_1;
+			$postFields['address_line_2'] = $address_2;
+			$postFields['company_name'] = $employer;
+			$postFields['job_title'] = $title;
+			$postFields['city_name'] = $city;
+			$postFields['state_name'] = $state;
+			$postFields['country'] = $country;
+			$postFields['zip_code'] = $zip_code;
+			$postFields['custom_fields'] = array(
+							'1' => $email,
+							'2' => $employer_type,
+							'3' => $role,
+							'4' => $cc_phone,
+							'5' => $phone,
+							'6' => $phone_ext,	
+							'7' => $address_type_text,
+							'8' => $sal,
+							'9' => $state_name,
+							'10' => $country_name,
+					);
+			$postFields['mail_type'] = 'HTML';
+			$postFields['lists'] = array('http://api.constantcontact.com/ws/customers/ntcpolicy/lists/3');
+			
+			$contactXML = $ccContactOBJ->createContactXML(null,$postFields);
+
+			 if (!$ccContactOBJ->addSubscriber($contactXML)) {
+			  drupal_set_message('There was an error while adding your information to our list, please contact ' . $policy_contact, 'error');
+			}	else {
+			  drupal_set_message('Thank you for signing up', 'status');
+			}
+			
+			// drupal_set_message('<pre>' . print_r($contactXML, TRUE) . '</pre>');
+	}
+
+	// edit-next or anything else will cause rebuild.
+	$form_state['rebuild'] = TRUE;
+}
+
+
+function signup_cc_block($op = 'list', $delta = '', $edit = array()) {
+	// The $op parameter determines what piece of information is being requested.
+	switch ($op) {
+		case 'list':
+			$blocks['signup_cc'] = array(
+				'info' => t('Policy Sign up'),
+			);
+			return $blocks;
+		case 'view':
+			switch ($delta) {
+				case 'signup_cc':
+					$block['subject'] = t('Policy Sign up');
+					$block['content'] = drupal_get_form('signup_cc_data_block');
+				break;
+			}
+		return $block;
+	}
+}
+
+// Create sign up block form used in hook_block()
+function signup_cc_data_block($form_state) {
+	$form['email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Email'),
+		'#size' => 40,
+		'#required' => TRUE,
+	);	
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Sign Up'
+	);
+	$form['#redirect'] = 'signup/policy';
+	return $form;
+}
+
+// Validate block form
+function signup_cc_data_block_validate($form, &$form_state) {
+	$mail = $form_state['values']['email'];
+	if (!signup_cc_valid_email_address($mail)) {
+		form_set_error('mail', t('The e-mail address ' . $mail . ' is not a valid email address.'));
+	}
+}
+
+// Submit block form
+function signup_cc_data_block_submit($form, &$form_state) {
+    $signup_message = 'To complete your signup and to serve you better we’d be grateful if you would take a moment to supply us with more information.<br />';
+//    $signup_message = 'If you have signed up here previously, then use the same email address to retieve your information and update it appropriately.';
+//	drupal_set_message(variable_get('sign_up_update', t($signup_message)));
+	drupal_set_message(t($signup_message));
+}
+
+/**
+ * Helper function to populate the first dropdown. This would normally be
+ * pulling data from the database.
+ *
+ * @return array of options
+ *
+ * list of countries taken from: http://www.iso.org/iso/english_country_names_and_code_elements
+ * countries that are listed in USPS state list (e.g. receive mail services from US) are 
+ * removed and Country for the regions should be US
+ */
+function _signup_cc_get_first_dropdown_options() {
+	// drupal_map_assoc() just makes an array('Strings' => 'Strings'...).
+	return 	signup_cc_get_list('countries');
+}
+
+/**
+ * Helper function to populate the second dropdown. This would normally be
+ * pulling data from the database.
+ *
+ * @param key. This will determine which set of options is returned.
+ *
+ * @return array of options
+ *
+ * list of US states taken from: http://zip4.usps.com/zip4/zcl_0_landing_state.htm
+ * list of CA states taken from: http://www.columbia.edu/kermit/postal.html#canada
+ */
+function _signup_cc_get_second_dropdown_options($key = '') {
+	$options = array(
+		t('- select -') => drupal_map_assoc(array(
+			t('- select -')
+		)),
+		'US' => signup_cc_get_list('usstates'),
+		'CA' => signup_cc_get_list('castates'),
+	);
+	if (isset($options[$key])) {
+		return $options[$key];
+	}
+	else {
+		return array();
+	}
+}
+
+
+//function used to trim whitespace and remove non-pritable characters
+function signup_cc_trim($string) {
+	$trimmed_string = trim($string);
+	$val = preg_replace( '/[^[:print:]]/', '', $trimmed_string );
+	return $val;
+}
+
+// Validation functions
+function signup_cc_valid_email_address($mail) {
+	$user = '[a-zA-Z0-9_\-\.\+\^!#\$%&*+\/\=\?\`\|\{\}~\']+';
+	$domain = '(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.?)+';
+	$ipv4 = '[0-9]{1,3}(\.[0-9]{1,3}){3}';
+	$ipv6 = '[0-9a-fA-F]{1,4}(\:[0-9a-fA-F]{1,4}){7}';
+
+	return preg_match("/^$user@($domain|(\[($ipv4|$ipv6)\]))$/", $mail);
+}
+
+function signup_cc_valid_email_verify($mail) {
+  // Add php email verification file
+  drupal_add_php(drupal_get_path('module','signup_cc') . 'email_verify.php');
+  //call to validateEmail in email_verify.php
+  if (!isset($mail)||$mail==''){
+  	return " Address is blank.";
+  } else {
+    return validateEmail($mail);
+  }
+}// function signup_valid_email_address
+
+function signup_cc_format_postal_code($zip_code,$country='US'){
+	// formats a postal code in US or International format
+	// for consistent input in to database
+	if($country == 'US'){	
+		$zip_code =  preg_replace('/\D|-*/','', $zip); # remove non-numbers
+	   	$zip_code = (strlen($zip)=='9')? substr($zip,0,5)."-".substr($zip,5,4) : substr($zip,0,5);
+	}
+	return $zip;
+}// end function signup_cc_format_postal_code
+
+function signup_cc_valid_postal_code($zip,$country='US'){
+ 	if ($country == 'US'){
+ 		//$zip =  preg_replace('/\D|-*/', '', trim($zip)); # remove non-numbers;
+ 		//echo "zip: $zip country: $country<br />";
+ 		//echo preg_match('/^[0-9]{5,9}$/', trim ($zip));
+ 		//$zip =  preg_replace('/-/', '', $zip); # remove non-numbers;
+ 		//return  (!(strlen($zip)<5) || preg_match('/^[0-9]{5,9}$/', trim ($zip))); #matches 5-10 digits
+ 		//echo preg_match("/^([0-9]{5})(-[0-9]{4})?$/i",$zip);
+ 		if (!(strlen($zip)<5) && preg_match("/^([0-9]{5})(-[0-9]{4})?$/i",trim($zip))){
+ 			return 1; #matches 5-9 digits
+ 		} else {
+ 			return 0;
+ 		}
+ 	} else {
+ 	  return 1;	//not currently validating zips other than US
+ 	}
+}// end function signup_cc_valid_postalcode
+function signup_cc_get_list( $request ){
 	
-	$('#signup-cc-form').validate({
-		rules: {
-			email: {
-				required: true,
-				email: true,
-				equalTo: "#edit-temp-email"
-			},
-			zip_code: {
-				required: true,
-				minlength: 4
-			}
-		},
-		messages: {
-			email: {
-				required: 'Please provide an email address',
-				email: 'Please provide a valid email address',
-				equalTo: 'The specified email address do not match the address above'
-			},
-			first: {
-				required: 'Please enter your first name.'
-			},
-			last: {
-				required: 'Please enter your last name.'
-			},
-			zip_code: {
-				required: 'Please enter your postal code.'
-			},
-			title: {
-				required: 'Please enter your job title.'
-			},
-			employer: {
-				required: 'Please enter your employer.'
-			}
-		},
-		errorPlacement: function(error, element) {
-				$(element).parent().append(error);
-				var w = $(element).width() + 147;
-				$(error).css('left', w);
-		}
-	});
-	$('#signup-cc-data-block, #signup-cc-form').submit(function(){
-		var email = $('#edit-email').val()
-		$.cookie('signup', email, { expires: 7, path: '/' });
-	});
-	var cookie = $.cookie('signup');
-	$('#signup-cc-form #edit-temp-email').val(cookie);
-	// alert(cookie)
-	
-});
+	$countries = array(
+			'- select -' => t('- select -'), 
+			'US' => t('United States'),
+			'CA' => t('Canada'),
+			'AF' => t('Afghanistan'),
+			'AX' => t('Åland Islands'),
+			'AL' => t('Albania'),
+			'DZ' => t('Algeria'),
+			'AD' => t('Andorra'),
+			'AO' => t('Angola'),
+			'AI' => t('Anguilla'),
+			'AQ' => t('Antarctica'),
+			'AG' => t('Antigua And Barbuda'),
+			'AR' => t('Argentina'),
+			'AM' => t('Armenia'),
+			'AW' => t('Aruba'),
+			'AU' => t('Australia'),
+			'AT' => t('Austria'),
+			'AZ' => t('Azerbaijan'),
+			'BS' => t('Bahamas'),
+			'BH' => t('Bahrain'),
+			'BD' => t('Bangladesh'),
+			'BB' => t('Barbados'),
+			'BY' => t('Belarus'),
+			'BE' => t('Belgium'),
+			'BZ' => t('Belize'),
+			'BJ' => t('Benin'),
+			'BM' => t('Bermuda'),
+			'BT' => t('Bhutan'),
+			'BO' => t('Bolivia, Plurinational State Of'),
+			'BA' => t('Bosnia And Herzegovina'),
+			'BW' => t('Botswana'),
+			'BV' => t('Bouvet Island'),
+			'BR' => t('Brazil'),
+			'IO' => t('British Indian Ocean Territory'),
+			'BN' => t('Brunei Darussalam'),
+			'BG' => t('Bulgaria'),
+			'BF' => t('Burkina Faso'),
+			'BI' => t('Burundi'),
+			'KH' => t('Cambodia'),
+			'CM' => t('Cameroon'),
+			'CA' => t('Canada'),
+			'CV' => t('Cape Verde'),
+			'KY' => t('Cayman Islands'),
+			'CF' => t('Central African Republic'),
+			'TD' => t('Chad'),
+			'CL' => t('Chile'),
+			'CN' => t('China'),
+			'CX' => t('Christmas Island'),
+			'CC' => t('Cocos (Keeling) Islands'),
+			'CO' => t('Colombia'),
+			'KM' => t('Comoros'),
+			'CG' => t('Congo'),
+			'CD' => t('Congo, The Democratic Republic Of The'),
+			'CK' => t('Cook Islands'),
+			'CR' => t('Costa Rica'),
+			'CI' => t('Côte D’ivoire'),
+			'HR' => t('Croatia'),
+			'CU' => t('Cuba'),
+			'CY' => t('Cyprus'),
+			'CZ' => t('Czech Republic'),
+			'DK' => t('Denmark'),
+			'DJ' => t('Djibouti'),
+			'DM' => t('Dominica'),
+			'DO' => t('Dominican Republic'),
+			'EC' => t('Ecuador'),
+			'EG' => t('Egypt'),
+			'SV' => t('El Salvador'),
+			'GQ' => t('Equatorial Guinea'),
+			'ER' => t('Eritrea'),
+			'EE' => t('Estonia'),
+			'ET' => t('Ethiopia'),
+			'FK' => t('Falkland Islands (malvinas)'),
+			'FO' => t('Faroe Islands'),
+			'FJ' => t('Fiji'),
+			'FI' => t('Finland'),
+			'FR' => t('France'),
+			'GF' => t('French Guiana'),
+			'PF' => t('French Polynesia'),
+			'TF' => t('French Southern Territories'),
+			'GA' => t('Gabon'),
+			'GM' => t('Gambia'),
+			'GE' => t('Georgia'),
+			'DE' => t('Germany'),
+			'GH' => t('Ghana'),
+			'GI' => t('Gibraltar'),
+			'GR' => t('Greece'),
+			'GL' => t('Greenland'),
+			'GD' => t('Grenada'),
+			'GP' => t('Guadeloupe'),
+			'GU' => t('Guam'),
+			'GT' => t('Guatemala'),
+			'GG' => t('Guernsey'),
+			'GN' => t('Guinea'),
+			'GW' => t('Guinea-bissau'),
+			'GY' => t('Guyana'),
+			'HT' => t('Haiti'),
+			'HM' => t('Heard Island And Mcdonald Islands'),
+			'VA' => t('Holy See (Vatican City State)'),
+			'HN' => t('Honduras'),
+			'HK' => t('Hong Kong'),
+			'HU' => t('Hungary'),
+			'IS' => t('Iceland'),
+			'IN' => t('India'),
+			'ID' => t('Indonesia'),
+			'IR' => t('Iran, Islamic Republic Of'),
+			'IQ' => t('Iraq'),
+			'IE' => t('Ireland'),
+			'IM' => t('Isle Of Man'),
+			'IL' => t('Israel'),
+			'IT' => t('Italy'),
+			'JM' => t('Jamaica'),
+			'JP' => t('Japan'),
+			'JE' => t('Jersey'),
+			'JO' => t('Jordan'),
+			'KZ' => t('Kazakhstan'),
+			'KE' => t('Kenya'),
+			'KI' => t('Kiribati'),
+			'KP' => t('Korea, Democratic People’s Republic Of'),
+			'KR' => t('Korea, Republic Of'),
+			'KW' => t('Kuwait'),
+			'KG' => t('Kyrgyzstan'),
+			'LA' => t('Lao People’s Democratic Republic'),
+			'LV' => t('Latvia'),
+			'LB' => t('Lebanon'),
+			'LS' => t('Lesotho'),
+			'LR' => t('Liberia'),
+			'LY' => t('Libyan Arab Jamahiriya'),
+			'LI' => t('Liechtenstein'),
+			'LT' => t('Lithuania'),
+			'LU' => t('Luxembourg'),
+			'MO' => t('Macao'),
+			'MK' => t('Macedonia, The Former Yugoslav Republic Of'),
+			'MG' => t('Madagascar'),
+			'MW' => t('Malawi'),
+			'MY' => t('Malaysia'),
+			'MV' => t('Maldives'),
+			'ML' => t('Mali'),
+			'MT' => t('Malta'),
+			'MQ' => t('Martinique'),
+			'MR' => t('Mauritania'),
+			'MU' => t('Mauritius'),
+			'YT' => t('Mayotte'),
+			'MX' => t('Mexico'),
+			'MD' => t('Moldova, Republic Of'),
+			'MC' => t('Monaco'),
+			'MN' => t('Mongolia'),
+			'ME' => t('Montenegro'),
+			'MS' => t('Montserrat'),
+			'MA' => t('Morocco'),
+			'MZ' => t('Mozambique'),
+			'MM' => t('Myanmar'),
+			'NA' => t('Namibia'),
+			'NR' => t('Nauru'),
+			'NP' => t('Nepal'),
+			'NL' => t('Netherlands'),
+			'AN' => t('Netherlands Antilles'),
+			'NC' => t('New Caledonia'),
+			'NZ' => t('New Zealand'),
+			'NI' => t('Nicaragua'),
+			'NE' => t('Niger'),
+			'NG' => t('Nigeria'),
+			'NU' => t('Niue'),
+			'NF' => t('Norfolk Island'),
+			'MP' => t('Northern Mariana Islands'),
+			'NO' => t('Norway'),
+			'OM' => t('Oman'),
+			'PK' => t('Pakistan'),
+			'PS' => t('Palestinian Territory, Occupied'),
+			'PA' => t('Panama'),
+			'PG' => t('Papua New Guinea'),
+			'PY' => t('Paraguay'),
+			'PE' => t('Peru'),
+			'PH' => t('Philippines'),
+			'PN' => t('Pitcairn'),
+			'PL' => t('Poland'),
+			'PT' => t('Portugal'),
+			'QA' => t('Qatar'),
+			'RE' => t('Réunion'),
+			'RO' => t('Romania'),
+			'RU' => t('Russian Federation'),
+			'RW' => t('Rwanda'),
+			'BL' => t('Saint Barthélemy'),
+			'SH' => t('Saint Helena'),
+			'KN' => t('Saint Kitts And Nevis'),
+			'LC' => t('Saint Lucia'),
+			'MF' => t('Saint Martin'),
+			'PM' => t('Saint Pierre And Miquelon'),
+			'VC' => t('Saint Vincent And The Grenadines'),
+			'WS' => t('Samoa'),
+			'SM' => t('San Marino'),
+			'ST' => t('Sao Tome And Principe'),
+			'SA' => t('Saudi Arabia'),
+			'SN' => t('Senegal'),
+			'RS' => t('Serbia'),
+			'SC' => t('Seychelles'),
+			'SL' => t('Sierra Leone'),
+			'SG' => t('Singapore'),
+			'SK' => t('Slovakia'),
+			'SI' => t('Slovenia'),
+			'SB' => t('Solomon Islands'),
+			'SO' => t('Somalia'),
+			'ZA' => t('South Africa'),
+			'GS' => t('South Georgia And The South Sandwich Islands'),
+			'ES' => t('Spain'),
+			'LK' => t('Sri Lanka'),
+			'SD' => t('Sudan'),
+			'SR' => t('Suriname'),
+			'SJ' => t('Svalbard And Jan Mayen'),
+			'SZ' => t('Swaziland'),
+			'SE' => t('Sweden'),
+			'CH' => t('Switzerland'),
+			'SY' => t('Syrian Arab Republic'),
+			'TW' => t('Taiwan, Province Of China'),
+			'TJ' => t('Tajikistan'),
+			'TZ' => t('Tanzania, United Republic Of'),
+			'TH' => t('Thailand'),
+			'TL' => t('Timor-leste'),
+			'TG' => t('Togo'),
+			'TK' => t('Tokelau'),
+			'TO' => t('Tonga'),
+			'TT' => t('Trinidad And Tobago'),
+			'TN' => t('Tunisia'),
+			'TR' => t('Turkey'),
+			'TM' => t('Turkmenistan'),
+			'TC' => t('Turks And Caicos Islands'),
+			'TV' => t('Tuvalu'),
+			'UG' => t('Uganda'),
+			'UA' => t('Ukraine'),
+			'AE' => t('United Arab Emirates'),
+			'GB' => t('United Kingdom'),
+			'US' => t('United States'),
+			'UM' => t('United States Minor Outlying Islands'),
+			'UY' => t('Uruguay'),
+			'UZ' => t('Uzbekistan'),
+			'VU' => t('Vanuatu'),
+			'VA' => t('Vatican City State (Holy See)'),
+			'VE' => t('Venezuela, Bolivarian Republic Of'),
+			'VN' => t('Viet Nam'),
+			'VG' => t('Virgin Islands, British'),
+			'VI' => t('Virgin Islands, U.S.'),
+			'WF' => t('Wallis And Futuna'),
+			'EH' => t('Western Sahara'),
+			'YE' => t('Yemen'),
+			'ZM' => t('Zambia'),
+			'ZW' => t('Zimbabwe')
+			);
+			
+	$usstates = array(
+				'- select -' => t('- select -'),
+				'AL' => t('Alabama'),
+				'AK' => t('Alaska'),
+				'AS' => t('American Samoa'),
+				'AZ' => t('Arizona'),
+				'AR' => t('Arkansas'),
+				'CA' => t('California'),
+				'CO' => t('Colorado'),
+				'CT' => t('Connecticut'),
+				'DE' => t('Delaware'),
+				'DC' => t('District of Columbia'),
+				'FM' => t('Federated States of Micronesia'),
+				'FL' => t('Florida'),
+				'GA' => t('Georgia'),
+				'GU' => t('Guam'),
+				'HI' => t('Hawaii'),
+				'ID' => t('Idaho'),
+				'IL' => t('Illinois'),
+				'IN' => t('Indiana'),
+				'IA' => t('Iowa'),
+				'KS' => t('Kansas'),
+				'KY' => t('Kentucky'),
+				'LA' => t('Louisiana'),
+				'ME' => t('Maine'),
+				'MH' => t('Marshall Islands'),
+				'MD' => t('Maryland'),
+				'MA' => t('Massachusetts'),
+				'MI' => t('Michigan'),
+				'MN' => t('Minnesota'),
+				'MS' => t('Mississippi'),
+				'MO' => t('Missouri'),
+				'MT' => t('Montana'),
+				'NE' => t('Nebraska'),
+				'NV' => t('Nevada'),
+				'NH' => t('New Hampshire'),
+				'NJ' => t('New Jersey'),
+				'NM' => t('New Mexico'),
+				'NY' => t('New York'),
+				'NC' => t('North Carolina'),
+				'ND' => t('North Dakota'),
+				'MP' => t('Northern Mariana Islands'),
+				'OH' => t('Ohio'),
+				'OK' => t('Oklahoma'),
+				'OR' => t('Oregon'),
+				'PW' => t('Palau'),
+				'PA' => t('Pennsylvania'),
+				'PR' => t('Puerto Rico'),
+				'RI' => t('Rhode Island'),
+				'SC' => t('South Carolina'),
+				'SD' => t('South Dakota'),
+				'TN' => t('Tennessee'),
+				'TX' => t('Texas'),
+				'UT' => t('Utah'),
+				'VT' => t('Vermont'),
+				'VI' => t('Virgin Islands'),
+				'VA' => t('Virginia'),
+				'WA' => t('Washington'),
+				'WV' => t('West Virginia'),
+				'WI' => t('Wisconsin'),
+				'WY' => t('Wyoming'),
+				'AE' => t('Armed Forces Africa'),
+				'AA' => t('Armed Forces Americas'),
+				'AE' => t('Armed Forces Canada'),
+				'AE' => t('Armed Forces Europe'),
+				'AE' => t('Armed Forces Middle East'),
+				'AP' => t('Armed Forces Pacific'),		
+			);
+	$castates = array(
+				'- select -' => t('- select -'),
+				'AB' => t('Alberta'),
+				'BC' => t('British Columbia'),
+				'MB' => t('Manitoba'),
+				'NB' => t('New Brunswick'),
+				'NF' => t('Newfoundland and Labrador'),
+				'NS' => t('Nova Scotia'),
+				'NT' => t('Northwest Territories'),
+				'NU' => t('Nunavut'),
+				'ON' => t('Ontario'),
+				'PE' => t('Prince Edward Island'),
+				'QC' => t('Quebec'),
+				'SK' => t('Saskatchewan'),
+				'YT' => t('Yukon Territory'),
+			);
+	$states = array_merge( $usstates, $castates);
+
+  return ${$request};
+}
